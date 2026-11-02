@@ -1,0 +1,1361 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>课择 CourseGrid · 选课冲突规划</title>
+<style>
+/* ============ 课择 CourseGrid —— 设计系统 ============ */
+:root{
+  --paper:#FAF7F2;
+  --card:#FFFFFF;
+  --ink:#1E1B16;
+  --ink2:#5C554A;
+  --ink3:#8B8375;
+  --line:#E7E0D4;
+  --line2:#F0EAE0;
+  --primary:#1F4E79;
+  --primary-soft:#EAF1F8;
+  --amber:#B8720B;
+  --amber-soft:#FBF2E2;
+  --green:#16624F;
+  --green-soft:#E7F2EE;
+  --red:#B03A2E;
+  --red-soft:#FBECEA;
+  --radius:14px;
+  --shadow:0 1px 2px rgba(30,27,22,.05), 0 8px 24px rgba(30,27,22,.06);
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{
+  background:var(--paper);
+  color:var(--ink);
+  font-family:"PingFang SC","Microsoft YaHei","Hiragino Sans GB","Segoe UI",system-ui,sans-serif;
+  font-size:14px;line-height:1.65;
+  -webkit-font-smoothing:antialiased;
+}
+button,input,select,textarea{font-family:inherit;font-size:inherit;color:inherit}
+a{color:var(--primary);text-decoration:none}
+
+/* ---------- 布局 ---------- */
+.app{min-height:100vh;display:flex;flex-direction:column}
+.topbar{
+  height:58px;display:flex;align-items:center;gap:14px;
+  padding:0 18px;background:var(--card);border-bottom:1px solid var(--line);
+  position:sticky;top:0;z-index:50;
+}
+.brand{display:flex;align-items:center;gap:9px;min-width:0}
+.logo{color:var(--primary);display:flex}
+.brand-txt{display:flex;flex-direction:column;line-height:1.15}
+.brand-txt b{font-size:15.5px;letter-spacing:.5px}
+.brand-txt small{font-size:10.5px;color:var(--ink3);letter-spacing:.2px}
+.topbar-mid{flex:1;display:flex;justify-content:center;min-width:0}
+.picker{
+  max-width:320px;width:100%;padding:6px 10px;border:1px solid var(--line);
+  border-radius:9px;background:var(--paper);font-size:13px;cursor:pointer;
+}
+.topbar-actions{display:flex;gap:7px}
+.btn{
+  border:1px solid var(--line);background:var(--card);color:var(--ink);
+  padding:6px 12px;border-radius:9px;cursor:pointer;font-size:13px;
+  transition:.15s;white-space:nowrap;
+}
+.btn:hover{border-color:var(--primary);color:var(--primary)}
+.btn.primary{background:var(--primary);border-color:var(--primary);color:#fff}
+.btn.primary:hover{opacity:.9;color:#fff}
+.btn.ghost{background:transparent}
+.btn.danger{color:var(--red);border-color:#EBC9C4}
+.btn.danger:hover{background:var(--red-soft);border-color:var(--red);color:var(--red)}
+.btn.sm{padding:3px 9px;font-size:12px;border-radius:7px}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+
+.body{flex:1;display:flex;min-height:0}
+.sidebar{
+  width:186px;flex:none;background:var(--card);border-right:1px solid var(--line);
+  padding:14px 10px;display:flex;flex-direction:column;gap:4px;
+  position:sticky;top:58px;height:calc(100vh - 58px);
+}
+.nav{display:flex;flex-direction:column;gap:2px}
+.nav-item{
+  display:flex;align-items:center;gap:9px;padding:8px 11px;border-radius:9px;
+  cursor:pointer;color:var(--ink2);font-size:13.5px;border:1px solid transparent;
+  transition:.15s;
+}
+.nav-item:hover{background:var(--paper)}
+.nav-item.on{background:var(--primary-soft);color:var(--primary);border-color:#CFE0F0;font-weight:600}
+.nav-item .ni-ico{width:16px;height:16px;display:flex;opacity:.85}
+.nav-item .ni-badge{margin-left:auto;font-size:11px;background:var(--amber-soft);color:var(--amber);
+  padding:1px 6px;border-radius:20px;font-weight:600}
+.side-foot{margin-top:auto;padding:10px 11px;border-top:1px solid var(--line2)}
+.sf-title{font-size:12px;font-weight:600;color:var(--ink2)}
+.sf-desc{font-size:11px;color:var(--ink3);line-height:1.5}
+
+.main{flex:1;padding:22px 26px 60px;min-width:0;max-width:1180px}
+
+/* ---------- 通用块 ---------- */
+.page-head{margin-bottom:16px}
+.page-head h1{font-size:20px;margin:0 0 4px;letter-spacing:.3px}
+.page-head p{margin:0;color:var(--ink2);font-size:13px}
+.card{
+  background:var(--card);border:1px solid var(--line);border-radius:var(--radius);
+  padding:16px 18px;box-shadow:var(--shadow);margin-bottom:14px;
+}
+.card h2{font-size:15px;margin:0 0 12px;display:flex;align-items:center;gap:8px}
+.card h2 .h2sub{font-size:12px;color:var(--ink3);font-weight:400}
+.grid-2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.grid-3{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+.muted{color:var(--ink3)}
+.small{font-size:12px}
+
+/* KPI 卡 */
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px;margin-bottom:14px}
+.kpi{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px 14px}
+.kpi .k-lab{font-size:11.5px;color:var(--ink3);letter-spacing:.3px}
+.kpi .k-val{font-size:22px;font-weight:700;line-height:1.25;letter-spacing:-.3px}
+.kpi .k-unit{font-size:12px;font-weight:500;color:var(--ink2);margin-left:2px}
+.kpi.acc{background:var(--primary-soft);border-color:#D5E4F2}
+.kpi.warn{background:var(--amber-soft);border-color:#F0DFC2}
+.kpi.bad{background:var(--red-soft);border-color:#F0D3CE}
+.kpi.ok{background:var(--green-soft);border-color:#CDE5DD}
+
+/* ---------- 课程列表 ---------- */
+.course-list{display:flex;flex-direction:column;gap:8px}
+.course{
+  display:flex;gap:12px;align-items:flex-start;
+  border:1px solid var(--line);border-radius:11px;padding:11px 13px;background:var(--card);
+  transition:.15s;
+}
+.course:hover{border-color:#D6CDBE;box-shadow:0 2px 10px rgba(30,27,22,.05)}
+.course.sel{border-color:var(--primary);background:var(--primary-soft)}
+.course.conf{background:var(--red-soft);border-color:#EFCBC6}
+.c-bar{width:4px;align-self:stretch;border-radius:3px;flex:none;min-height:44px}
+.c-main{flex:1;min-width:0}
+.c-top{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap}
+.c-name{font-weight:600;font-size:14px}
+.c-credit{font-size:12px;color:var(--primary);font-weight:600}
+.c-meta{font-size:11.5px;color:var(--ink3);margin-top:2px;display:flex;gap:10px;flex-wrap:wrap}
+.c-times{display:flex;gap:5px;flex-wrap:wrap;margin-top:6px}
+.tchip{font-size:11px;background:var(--paper);border:1px solid var(--line);
+  padding:1px 7px;border-radius:6px;color:var(--ink2);white-space:nowrap}
+.tchip.hit{background:var(--red-soft);border-color:#EFCBC6;color:var(--red)}
+.c-act{display:flex;gap:6px;flex:none;align-items:center}
+.tag{font-size:10.5px;padding:1.5px 7px;border-radius:20px;font-weight:600;letter-spacing:.3px}
+.tag.req{background:var(--primary-soft);color:var(--primary)}
+.tag.opt{background:var(--paper);color:var(--ink3);border:1px solid var(--line)}
+.tag.want{background:var(--amber-soft);color:var(--amber)}
+
+/* ---------- 表单 ---------- */
+.field{margin-bottom:11px}
+.field label{display:block;font-size:12px;color:var(--ink2);margin-bottom:4px;font-weight:600}
+.field input,.field select,.field textarea{
+  width:100%;padding:7px 10px;border:1px solid var(--line);border-radius:9px;
+  background:var(--paper);outline:none;transition:.15s;
+}
+.field input:focus,.field select:focus,.field textarea:focus{
+  border-color:var(--primary);background:#fff;box-shadow:0 0 0 3px var(--primary-soft);
+}
+.row{display:flex;gap:10px}
+.row>*{flex:1}
+.slotrows{display:flex;flex-direction:column;gap:7px}
+.slotrow{display:flex;gap:6px;align-items:center}
+.slotrow select{padding:6px 8px;border:1px solid var(--line);border-radius:8px;background:var(--paper)}
+.slotrow .s-day{flex:1.2}
+.slotrow .s-s{flex:1}
+.empty{text-align:center;color:var(--ink3);padding:26px 10px;font-size:13px}
+
+/* ---------- 课表网格 ---------- */
+.grid-wrap{overflow-x:auto}
+.tgrid{
+  display:grid;grid-template-columns:52px repeat(7,minmax(78px,1fr));
+  gap:3px;min-width:620px;
+}
+.tgrid .gh{
+  text-align:center;font-size:12px;font-weight:600;color:var(--ink2);
+  padding:5px 0;background:var(--paper);border-radius:7px;
+}
+.tgrid .gh.today{background:var(--primary);color:#fff}
+.tgrid .gt{
+  font-size:10.5px;color:var(--ink3);display:flex;flex-direction:column;
+  justify-content:center;align-items:center;line-height:1.25;padding:2px 0;
+  background:var(--paper);border-radius:7px;
+}
+.tgrid .gt b{font-size:11.5px;color:var(--ink2)}
+.tgrid .gcell{background:var(--card);border:1px solid var(--line2);border-radius:7px;min-height:40px}
+.tgrid .gcell.rest{background:repeating-linear-gradient(45deg,#FBF8F3,#FBF8F3 5px,#F5F0E8 5px,#F5F0E8 10px);
+  border-color:var(--line2)}
+.blk{
+  border-radius:8px;padding:5px 6px;color:#fff;font-size:11.5px;line-height:1.3;
+  overflow:hidden;display:flex;flex-direction:column;justify-content:center;
+  box-shadow:0 1px 3px rgba(30,27,22,.12);cursor:default;
+}
+.blk b{font-size:12px;display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.blk span{opacity:.88;font-size:10.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.legend{display:flex;gap:12px;flex-wrap:wrap;margin-top:12px;font-size:11.5px;color:var(--ink2)}
+.legend i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:4px;vertical-align:-1px}
+
+/* ---------- 方案 / 排名 ---------- */
+.plan-card{
+  border:1px solid var(--line);border-radius:12px;padding:13px 15px;background:var(--card);
+  margin-bottom:10px;transition:.15s;
+}
+.plan-card.best{border-color:var(--primary);background:var(--primary-soft)}
+.plan-card.on{border-color:var(--amber);box-shadow:0 0 0 3px var(--amber-soft)}
+.pc-head{display:flex;align-items:center;gap:9px;flex-wrap:wrap;margin-bottom:8px}
+.pc-rank{font-size:12px;font-weight:700;color:#fff;background:var(--primary);
+  width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex:none}
+.plan-card.best .pc-rank{background:var(--amber)}
+.pc-title{font-weight:600;font-size:14px}
+.pc-score{margin-left:auto;font-size:12px;color:var(--ink2)}
+.pc-score b{font-size:15px;color:var(--primary)}
+.pc-courses{display:flex;gap:5px;flex-wrap:wrap;margin-bottom:9px}
+.pchip{font-size:11.5px;padding:2px 8px;border-radius:6px;background:var(--paper);
+  border:1px solid var(--line);color:var(--ink2)}
+.pchip.req{border-color:#CFE0F0;background:#F2F7FC;color:var(--primary)}
+.pc-stats{display:flex;gap:14px;flex-wrap:wrap;font-size:11.5px;color:var(--ink3)}
+.pc-stats b{color:var(--ink);font-weight:600}
+.pc-act{display:flex;gap:6px;margin-top:10px}
+
+/* 对比条形 */
+.cmp-row{display:grid;grid-template-columns:82px 1fr 58px;gap:10px;align-items:center;
+  padding:7px 0;border-bottom:1px dashed var(--line2)}
+.cmp-row:last-child{border-bottom:none}
+.cmp-lab{font-size:12px;color:var(--ink2)}
+.cmp-bar{height:16px;background:var(--line2);border-radius:8px;overflow:hidden;position:relative}
+.cmp-fill{height:100%;border-radius:8px;background:var(--primary);transition:width .3s}
+.cmp-fill.alt{background:var(--amber)}
+.cmp-val{font-size:12px;text-align:right;color:var(--ink2);font-weight:600}
+.cmp-note{font-size:11px;color:var(--ink3);margin-top:2px}
+
+/* ---------- 提示条 ---------- */
+.alert{border-radius:11px;padding:11px 14px;font-size:12.5px;margin-bottom:12px;line-height:1.6}
+.alert.warn{background:var(--amber-soft);border:1px solid #F0DFC2;color:#7A4E06}
+.alert.bad{background:var(--red-soft);border:1px solid #F0D3CE;color:#8A2C22}
+.alert.ok{background:var(--green-soft);border:1px solid #CDE5DD;color:#0E4B3B}
+.alert.info{background:var(--primary-soft);border:1px solid #D5E4F2;color:#16405F}
+.alert b{font-weight:700}
+
+/* ---------- 说明页 ---------- */
+.prose{max-width:760px}
+.prose h3{font-size:14.5px;margin:18px 0 7px;color:var(--primary)}
+.prose p{margin:0 0 10px;color:var(--ink2);font-size:13.5px}
+.prose ul{margin:0 0 12px;padding-left:20px;color:var(--ink2);font-size:13.5px}
+.prose li{margin-bottom:5px}
+.prose code{background:var(--paper);border:1px solid var(--line);border-radius:5px;
+  padding:1px 5px;font-family:"Cascadia Mono",Consolas,monospace;font-size:12.5px}
+.fml{background:var(--paper);border:1px solid var(--line);border-left:3px solid var(--primary);
+  border-radius:0 9px 9px 0;padding:10px 14px;margin:10px 0;font-size:13px;color:var(--ink);
+  font-family:"Cascadia Mono",Consolas,monospace;overflow-x:auto}
+
+/* ---------- 弹窗 / toast ---------- */
+.mask{position:fixed;inset:0;background:rgba(30,27,22,.36);z-index:200;
+  display:flex;align-items:center;justify-content:center;padding:18px;backdrop-filter:blur(2px)}
+.modal{background:var(--card);border-radius:16px;width:min(560px,100%);max-height:88vh;
+  overflow-y:auto;padding:20px 22px;box-shadow:0 24px 60px rgba(30,27,22,.24)}
+.modal h3{margin:0 0 14px;font-size:16px}
+.modal-foot{display:flex;gap:9px;justify-content:flex-end;margin-top:16px;
+  padding-top:14px;border-top:1px solid var(--line2)}
+#toastRoot{position:fixed;bottom:22px;left:50%;transform:translateX(-50%);z-index:300;
+  display:flex;flex-direction:column;gap:8px;align-items:center;pointer-events:none}
+.toast{background:var(--ink);color:#fff;padding:9px 16px;border-radius:22px;font-size:13px;
+  box-shadow:0 8px 24px rgba(30,27,22,.24);animation:tin .22s ease}
+.toast.err{background:var(--red)}
+.toast.ok{background:var(--green)}
+@keyframes tin{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+
+/* ---------- 响应式 ---------- */
+@media (max-width:980px){
+  .grid-2,.grid-3{grid-template-columns:1fr}
+  .main{padding:18px 16px 70px}
+}
+@media (max-width:760px){
+  .topbar{height:52px;padding:0 12px;gap:8px;flex-wrap:wrap}
+  .brand-txt small{display:none}
+  .topbar-mid{order:3;flex-basis:100%;justify-content:flex-start}
+  .picker{max-width:100%}
+  .topbar-actions .btn{padding:5px 9px;font-size:12px}
+  .sidebar{
+    position:fixed;bottom:0;left:0;right:0;top:auto;width:100%;height:auto;
+    flex-direction:row;border-right:none;border-top:1px solid var(--line);
+    padding:6px 4px;z-index:60;overflow-x:auto;
+  }
+  .nav{flex-direction:row;gap:2px;width:100%}
+  .nav-item{flex:1;flex-direction:column;gap:2px;padding:5px 2px;font-size:11px;
+    align-items:center;justify-content:center;text-align:center;min-width:60px}
+  .nav-item .ni-ico{margin:0 auto}
+  .nav-item .ni-badge{display:none}
+  .side-foot{display:none}
+  .main{padding:14px 12px 78px}
+  .kpis{grid-template-columns:repeat(2,1fr)}
+  .course{flex-wrap:wrap}
+  .c-act{width:100%;justify-content:flex-end}
+  .cmp-row{grid-template-columns:68px 1fr 50px;gap:7px}
+}
+
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="topbar">
+    <div class="brand">
+      <span class="logo" aria-hidden="true">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+          <rect x="2.5" y="3.5" width="19" height="17" rx="2.5" stroke="currentColor" stroke-width="1.6"/>
+          <path d="M2.5 8.5h19M9 3.5V8.5M15 3.5V8.5" stroke="currentColor" stroke-width="1.3"/>
+          <rect x="5" y="10.5" width="4.5" height="3" rx="1" fill="currentColor" opacity=".85"/>
+          <rect x="11" y="10.5" width="4.5" height="3" rx="1" fill="currentColor" opacity=".55"/>
+          <rect x="5" y="15" width="4.5" height="3" rx="1" fill="currentColor" opacity=".55"/>
+          <rect x="11" y="15" width="7" height="3" rx="1" fill="currentColor" opacity=".85"/>
+        </svg>
+      </span>
+      <span class="brand-txt"><b>课择</b><small>CourseGrid · 选课冲突规划</small></span>
+    </div>
+    <div class="topbar-mid">
+      <select id="planPicker" class="picker" title="切换方案"></select>
+    </div>
+    <div class="topbar-actions">
+      <button class="btn ghost" id="btnNew">新建方案</button>
+      <button class="btn ghost" id="btnSeed" title="载入 22 门示例课程">示例课程</button>
+      <button class="btn ghost" id="btnExport">导出</button>
+      <button class="btn ghost" id="btnImport">导入</button>
+    </div>
+  </header>
+
+  <div class="body">
+    <aside class="sidebar">
+      <nav id="nav" class="nav"></nav>
+      <div class="side-foot">
+        <div class="sf-title">数据存于本机</div>
+        <div class="sf-desc">localStorage · 零依赖 · 断网可用</div>
+      </div>
+    </aside>
+    <main id="main" class="main"></main>
+  </div>
+</div>
+
+<div id="modalRoot"></div>
+<div id="toastRoot"></div>
+<input type="file" id="fileInput" accept=".json,application/json" hidden />
+<script>
+/* =========================================================
+   课择 CourseGrid —— 选课冲突规划器
+   零依赖 · 单页 · localStorage 持久化
+   内核：区间冲突检测 + 回溯/上界剪枝的带约束组合优化
+   ========================================================= */
+(function () {
+  'use strict';
+
+  /* ---------- 常量 ---------- */
+  var DAYS = ['周一', '周二', '周三', '周四', '周五', '周六', '周日'];
+  var SLOT_TIME = [
+    '', '08:00', '08:55', '10:00', '10:55', '14:00', '14:55', '16:00', '16:55', '19:00', '19:55'
+  ];
+  var SLOT_END = [
+    '', '08:45', '09:40', '10:45', '11:40', '14:45', '15:40', '16:45', '17:40', '19:45', '20:40'
+  ];
+  // 节次 → 时段段号（0 上午 / 1 下午 / 2 晚上），用于空窗统计
+  var SEG = [0, 0, 0, 0, 0, 1, 1, 1, 1, 2, 2];
+  var HUES = ['#2E6F9E', '#3E8E7E', '#8A6BAF', '#C08552', '#5B8C5A', '#A65D6E',
+    '#4F7A8C', '#9A7B4F', '#6B7FB3', '#7E9B58', '#B0764F', '#5F8F8A',
+    '#7A6FA3', '#48808F'];
+  var STRATS = {
+    credit: { label: '学分优先', desc: '价值 = 学分 × 想选程度' },
+    sleep: { label: '懒觉优先', desc: '学分 × 想选程度 − 早八/晚课惩罚' },
+    light: { label: '轻松优先', desc: '学分 × 想选程度 − 每周课时惩罚' }
+  };
+  var KEY = 'coursegrid.store.v1';
+  // 策略兜底：store 里的 strategy 可能是旧版本遗留、导入的脏数据或被写坏，
+  // 直接 STRATS[p.strategy] 会拿到 undefined 并在渲染时抛异常。
+  function strat(p) { return STRATS[p && p.strategy] || STRATS.credit; }
+
+  /* ---------- 小工具 ---------- */
+  function $(s, r) { return (r || document).querySelector(s); }
+  function $$(s, r) { return Array.prototype.slice.call((r || document).querySelectorAll(s)); }
+  function esc(s) {
+    return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+    });
+  }
+  function uid() { return 'c' + Math.random().toString(36).slice(2, 9); }
+  function toast(msg, kind) {
+    var el = document.createElement('div');
+    el.className = 'toast ' + (kind || '');
+    el.textContent = msg;
+    $('#toastRoot').appendChild(el);
+    setTimeout(function () { el.remove(); }, 2400);
+  }
+  function clone(o) { return JSON.parse(JSON.stringify(o)); }
+  function slotTxt(s) {
+    return DAYS[s.day - 1] + ' ' + s.from + (s.to > s.from ? '-' + s.to : '') + '节';
+  }
+  function slotSpan(s) {
+    return DAYS[s.day - 1] + ' ' + SLOT_TIME[s.from] + '–' + SLOT_END[s.to];
+  }
+
+  /* ---------- 存储 ---------- */
+  var STORE = { plans: [], active: null };
+  function save() {
+    try { localStorage.setItem(KEY, JSON.stringify(STORE)); }
+    catch (e) { toast('无法写入本地存储', 'err'); }
+  }
+  function load() {
+    try {
+      var raw = localStorage.getItem(KEY);
+      if (!raw) return false;
+      var d = JSON.parse(raw);
+      if (!d || !d.plans || !d.plans.length) return false;
+      // 规整：非法策略回落到 credit，防止脏数据把渲染打挂
+      d.plans.forEach(function (p) {
+        if (!STRATS[p.strategy]) p.strategy = 'credit';
+        if (!(p.minCredit >= 1)) p.minCredit = 1;
+        if (!(p.maxCredit >= 1)) p.maxCredit = 40;
+        if (!Array.isArray(p.courses)) p.courses = [];
+      });
+      STORE = d;
+      return true;
+    } catch (e) { return false; }
+  }
+  function plan() {
+    var p = STORE.plans.filter(function (x) { return x.id === STORE.active; })[0];
+    return p || STORE.plans[0];
+  }
+  function courseById(id) {
+    var p = plan();
+    return p.courses.filter(function (c) { return c.id === id; })[0];
+  }
+
+  /* ============ 算法层 ============ */
+
+  /** 课程占用的时段索引列表 */
+  function occOf(c) {
+    var out = [];
+    c.slots.forEach(function (s) {
+      for (var k = s.from; k <= s.to; k++) out.push(s.day * 12 + k);
+    });
+    return out;
+  }
+  function slotCount(c) {
+    var n = 0;
+    c.slots.forEach(function (s) { n += s.to - s.from + 1; });
+    return n;
+  }
+
+  /** 两门课是否冲突 */
+  function hit(a, b) {
+    var i, j;
+    for (i = 0; i < a.slots.length; i++) {
+      for (j = 0; j < b.slots.length; j++) {
+        if (a.slots[i].day === b.slots[j].day &&
+          a.slots[i].from <= b.slots[j].to && b.slots[j].from <= a.slots[i].to) return true;
+      }
+    }
+    return false;
+  }
+
+  /** 单个课程的目标价值（随策略变化） */
+  function valueOf(c, strat) {
+    var v = c.credit * c.want, i;
+    if (strat === 'sleep') {
+      c.slots.forEach(function (s) {
+        if (s.from === 1) v -= 6;            // 早八
+        if (s.to >= 9) v -= 2;               // 晚课
+      });
+    } else if (strat === 'light') {
+      v -= 2 * slotCount(c);                 // 每周课时
+    }
+    return v;
+  }
+
+  /** 一组课程的 KPI */
+  function kpi(courses) {
+    var credit = 0, slots = 0, early = 0, late = 0, gaps = 0, earlyReq = 0;
+    var byDay = {};
+    courses.forEach(function (c) {
+      credit += c.credit;
+      c.slots.forEach(function (s) {
+        for (var k = s.from; k <= s.to; k++) {
+          slots++;
+          // 早八拆成"必修造成"和"选修造成"：前者无法通过选课优化，
+          // 不拆开的话用户会以为「懒觉优先」策略失效。
+          if (k === 1) { early++; if (c.required) earlyReq++; }
+          if (k > late) late = k;
+          if (!byDay[s.day]) byDay[s.day] = {};
+          byDay[s.day][SEG[k]] = 1;
+        }
+      });
+    });
+    Object.keys(byDay).forEach(function (d) {
+      var segs = Object.keys(byDay[d]).map(Number).sort(function (a, b) { return a - b; });
+      for (var i = 1; i < segs.length; i++) gaps += segs[i] - segs[i - 1] - 1;
+    });
+    return {
+      credit: credit, count: courses.length, slots: slots,
+      early: early, earlyReq: earlyReq, gaps: gaps, late: late,
+      freeDays: 7 - Object.keys(byDay).length
+    };
+  }
+
+  /**
+   * 回溯求解：在必修课已固定的前提下，从选修池里挑出不冲突、
+   * 学分落在 [min,max] 内的组合，直接收集目标价值最高的前 K 个。
+   * 剪枝：① 学分超上限 ② 剩余课程价值上界（后缀和）不超过当前第 K 名
+   */
+  function solve(p, K) {
+    K = K || 5;
+    var t0 = (performance && performance.now) ? performance.now() : Date.now();
+    var nodes = 0, prunes = 0, LIMIT = 600000;
+
+    var reqs = p.courses.filter(function (c) { return c.required; });
+    var opts = p.courses.filter(function (c) { return !c.required; });
+
+    // 必修自检
+    var reqHit = [];
+    for (var a = 0; a < reqs.length; a++) {
+      for (var b = a + 1; b < reqs.length; b++) {
+        if (hit(reqs[a], reqs[b])) reqHit.push([reqs[a].name, reqs[b].name]);
+      }
+    }
+    if (reqHit.length) {
+      return { error: '必修课之间存在时间冲突，请先调整', pairs: reqHit };
+    }
+    var reqCredit = reqs.reduce(function (s, c) { return s + c.credit; }, 0);
+    if (reqCredit > p.maxCredit) {
+      return { error: '必修课学分合计 ' + reqCredit + '，已超过上限 ' + p.maxCredit };
+    }
+
+    // 选修池：按价值密度降序（先选"性价比"高的，更快找到好的上界）
+    var pool = opts.map(function (c) { return { c: c, v: valueOf(c, p.strategy), occ: occOf(c) }; });
+    pool.sort(function (x, y) {
+      var dx = x.v / (slotCount(x.c) || 1), dy = y.v / (slotCount(y.c) || 1);
+      if (dy !== dx) return dy - dx;
+      return y.v - x.v;
+    });
+
+    var n = pool.length;
+    var suffix = new Array(n + 1).fill(0);
+    for (var i = n - 1; i >= 0; i--) suffix[i] = suffix[i + 1] + pool[i].v;
+
+    var occ = new Uint8Array(96);
+    reqs.forEach(function (c) { occOf(c).forEach(function (k) { occ[k] = 1; }); });
+
+    var reqIds = reqs.map(function (c) { return c.id; });
+    var tops = [];   // 当前最好的 K 个解，按价值降序
+    var cur = [], seen = {};
+
+    function fits(list) {
+      for (var i = 0; i < list.length; i++) if (occ[list[i]]) return false;
+      return true;
+    }
+    function mark(list, v) { list.forEach(function (k) { occ[k] = v; }); }
+
+    function offer(val, credit) {
+      var key = cur.slice().sort().join(',');
+      if (seen[key]) return;                                  // 同一组合只记一次
+      seen[key] = 1;
+      var rec = { v: val, ids: reqIds.concat(cur), credit: credit };
+      if (tops.length < K) {
+        tops.push(rec);
+        tops.sort(function (a, b) { return b.v - a.v; });
+      } else if (val > tops[K - 1].v) {
+        tops[K - 1] = rec;
+        tops.sort(function (a, b) { return b.v - a.v; });
+      }
+    }
+
+    function dfs(i, val, credit) {
+      if (++nodes > LIMIT) return;
+      if (credit > p.maxCredit) { prunes++; return; }
+      if (credit >= p.minCredit) offer(val, credit);          // 当前即为一个可行方案
+      if (i >= n) return;
+      if (tops.length >= K && val + suffix[i] <= tops[K - 1].v) { prunes++; return; }  // 上界剪枝
+      var it = pool[i];
+      if (fits(it.occ)) {
+        mark(it.occ, 1); cur.push(it.c.id);
+        dfs(i + 1, val + it.v, credit + it.c.credit);
+        cur.pop(); mark(it.occ, 0);
+      } else {
+        prunes++;
+      }
+      dfs(i + 1, val, credit);
+    }
+    dfs(0, 0, reqCredit);
+
+    var t1 = (performance && performance.now) ? performance.now() : Date.now();
+    if (!tops.length) {
+      return [{ error: '在 ' + p.minCredit + '–' + p.maxCredit +
+        ' 学分区间内无可行组合，请放宽约束或补充候选课。' }];
+    }
+    tops.forEach(function (t) { t.kpi = kpi(t.ids.map(courseById)); });
+    tops[0].stats = { nodes: nodes, prunes: prunes, ms: Math.max(1, Math.round(t1 - t0)) };
+    return tops;
+  }
+
+  /** 与必修冲突、永远选不上的选修 */
+  function blockedCourses(p) {
+    var reqs = p.courses.filter(function (c) { return c.required; });
+    return p.courses.filter(function (c) {
+      if (c.required) return false;
+      for (var i = 0; i < reqs.length; i++) if (hit(c, reqs[i])) return true;
+      return false;
+    });
+  }
+
+  /* ============ 示例数据 ============ */
+  function seedPlan() {
+    var C = function (name, credit, required, want, teacher, place, slots) {
+      return {
+        id: uid(), name: name, credit: credit, required: required, want: want,
+        teacher: teacher, place: place,
+        slots: slots.map(function (s) { return { day: s[0], from: s[1], to: s[2] }; })
+      };
+    };
+    var courses = [
+      C('高等数学III', 5, true, 5, '王建国', '跬步楼 301', [[1, 1, 2], [3, 3, 4]]),
+      C('线性代数', 3, true, 5, '李慧', '跬步楼 205', [[2, 3, 4]]),
+      C('概率论与数理统计', 4, true, 5, '张明远', '群庐 L301', [[3, 1, 2], [5, 3, 4]]),
+      C('数据结构', 4, true, 5, '陈曦', '信息楼 402', [[2, 1, 2], [4, 3, 4]]),
+      C('大学英语(三)', 3, true, 3, 'Emily', '外语楼 208', [[2, 5, 6], [4, 5, 6]]),
+      C('体育(三)', 1, true, 1, '刘峰', '田径场', [[1, 7, 8]]),
+
+      C('Python数据分析', 3, false, 5, '周雨桐', '信息楼 305', [[1, 5, 6], [4, 7, 8]]),
+      C('机器学习导论', 3, false, 5, '吴迪', '信息楼 501', [[3, 5, 6], [5, 5, 6]]),
+      C('数据库原理', 3, false, 4, '孙楠', '信息楼 308', [[5, 5, 6]]),
+      C('操作系统', 4, false, 4, '郑凯', '信息楼 403', [[1, 3, 4], [4, 1, 2]]),
+      C('统计学', 3, false, 3, '何静', '群庐 L205', [[4, 1, 2], [5, 1, 2]]),
+      C('计算机网络', 3, false, 3, '冯磊', '信息楼 406', [[2, 7, 8], [4, 9, 10]]),
+      C('运筹学', 3, false, 4, '许文', '群庐 L402', [[2, 7, 8], [3, 7, 8]]),
+      C('会计学原理', 3, false, 2, '范莉', '群庐 L101', [[1, 5, 6], [1, 9, 10]]),
+      C('英语口语', 2, false, 3, 'Smith', '外语楼 105', [[3, 9, 10]]),
+      C('数据挖掘', 3, false, 4, '吴迪', '信息楼 503', [[5, 1, 2], [5, 9, 10]]),
+      C('影视鉴赏', 2, false, 2, '陆遥', '艺术楼 201', [[4, 9, 10]]),
+      C('创新创业基础', 2, false, 1, '邹鹏', '群庐 L108', [[5, 9, 10]]),
+      C('信息检索与利用', 2, false, 3, '马雪', '图书馆 508', [[2, 9, 10]]),
+      C('数值分析', 3, false, 3, '许文', '群庐 L403', [[3, 5, 6], [4, 7, 8]]),
+      C('Web前端开发', 2, false, 3, '唐锐', '信息楼 302', [[3, 7, 8], [5, 7, 8]]),
+      C('离散数学', 3, false, 4, '李慧', '跬步楼 207', [[1, 1, 2], [4, 1, 2]])
+    ];
+    return {
+      id: uid(), title: '2026 秋季学期 · 示例课表',
+      minCredit: 22, maxCredit: 28, strategy: 'credit',
+      courses: courses, picked: null, solutions: null
+    };
+  }
+
+  /* ============ 视图：候选课程 ============ */
+  var CURVIEW = 'courses';
+
+  function viewCourses() {
+    var p = plan();
+    var reqCredit = p.courses.filter(function (c) { return c.required; })
+      .reduce(function (s, c) { return s + c.credit; }, 0);
+    var blocked = blockedCourses(p).map(function (c) { return c.id; });
+    var h = '';
+
+    h += '<div class="page-head"><h1>候选课程</h1>' +
+      '<p>把教务系统里想选的课全部录进来 —— 必修必选、选修由求解器决定取舍。</p></div>';
+
+    // 设置卡
+    h += '<div class="card"><h2>学分与策略<span class="h2sub">必修合计 ' + reqCredit +
+      ' 学分</span></h2>';
+    h += '<div class="row" style="margin-bottom:10px">' +
+      '<div class="field" style="margin:0"><label>学分下限</label>' +
+      '<input type="number" id="setMin" min="1" max="40" value="' + p.minCredit + '"></div>' +
+      '<div class="field" style="margin:0"><label>学分上限</label>' +
+      '<input type="number" id="setMax" min="1" max="40" value="' + p.maxCredit + '"></div>' +
+      '<div class="field" style="margin:0"><label>优化策略</label><select id="setStrat">' +
+      Object.keys(STRATS).map(function (k) {
+        return '<option value="' + k + '"' + (p.strategy === k ? ' selected' : '') + '>' +
+          STRATS[k].label + '</option>';
+      }).join('') + '</select></div></div>';
+    h += '<div class="small muted">' + strat(p).desc + '</div>';
+    h += '<div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap">' +
+      '<button class="btn primary" id="btnAdd">+ 添加课程</button>' +
+      '<button class="btn" id="btnSolveGo">→ 去求解</button></div>';
+    h += '</div>';
+
+    if (p.minCredit > p.maxCredit) {
+      h += '<div class="alert bad"><b>学分区间非法：</b>下限大于上限，请先修正。</div>';
+    }
+    if (reqCredit > p.maxCredit) {
+      h += '<div class="alert bad"><b>必修学分超上限：</b>必修合计 ' + reqCredit +
+        '，上限 ' + p.maxCredit + '，选修已无空间。</div>';
+    }
+
+    // 列表
+    h += '<div class="card"><h2>课程清单<span class="h2sub">共 ' + p.courses.length +
+      ' 门 · 必修 ' + p.courses.filter(function (c) { return c.required; }).length + ' 门</span></h2>';
+    if (!p.courses.length) {
+      h += '<div class="empty">还没有课程。点上方「添加课程」，或右上角载入示例。</div>';
+    } else {
+      h += '<div class="course-list">';
+      p.courses.forEach(function (c, i) {
+        var isBlocked = blocked.indexOf(c.id) >= 0;
+        h += '<div class="course' + (isBlocked ? ' conf' : '') + '">' +
+          '<div class="c-bar" style="background:' + HUES[i % HUES.length] + '"></div>' +
+          '<div class="c-main">' +
+          '<div class="c-top"><span class="c-name">' + esc(c.name) + '</span>' +
+          '<span class="c-credit">' + c.credit + ' 学分</span>' +
+          '<span class="tag ' + (c.required ? 'req">必修' : 'opt">选修') + '</span>' +
+          '<span class="tag want">想选 ' + c.want + '/5</span>' +
+          (isBlocked ? '<span class="tag" style="background:#FBECEA;color:#B03A2E">与必修冲突</span>' : '') +
+          '</div>' +
+          '<div class="c-meta"><span>' + esc(c.teacher || '—') + '</span><span>' +
+          esc(c.place || '—') + '</span><span>每周 ' + slotCount(c) + ' 节</span></div>' +
+          '<div class="c-times">' + c.slots.map(function (s) {
+            return '<span class="tchip">' + slotTxt(s) + '</span>';
+          }).join('') + '</div>' +
+          '</div>' +
+          '<div class="c-act">' +
+          '<button class="btn sm" data-edit="' + c.id + '">编辑</button>' +
+          '<button class="btn sm danger" data-del="' + c.id + '">删除</button>' +
+          '</div></div>';
+      });
+      h += '</div>';
+    }
+    h += '</div>';
+    return h;
+  }
+
+  function bindCourses() {
+    var p = plan();
+    function onSet() {
+      var mn = parseInt($('#setMin').value, 10);
+      var mx = parseInt($('#setMax').value, 10);
+      if (!(mn >= 1) || !(mx >= 1)) { toast('学分需为正整数', 'err'); return; }
+      p.minCredit = mn; p.maxCredit = mx;
+      p.strategy = $('#setStrat').value;
+      p.solutions = null;
+      save(); render();
+    }
+    if ($('#setMin')) $('#setMin').onchange = onSet;
+    if ($('#setMax')) $('#setMax').onchange = onSet;
+    if ($('#setStrat')) $('#setStrat').onchange = onSet;
+    if ($('#btnAdd')) $('#btnAdd').onclick = function () { openCourseEditor(null); };
+    if ($('#btnSolveGo')) $('#btnSolveGo').onclick = function () { go('solve'); };
+    $$('[data-edit]').forEach(function (b) {
+      b.onclick = function () { openCourseEditor(b.getAttribute('data-edit')); };
+    });
+    $$('[data-del]').forEach(function (b) {
+      b.onclick = function () {
+        var id = b.getAttribute('data-del');
+        var c = courseById(id);
+        confirmBox('删除课程', '确定删除「' + c.name + '」？此操作不可撤销。', function () {
+          p.courses = p.courses.filter(function (x) { return x.id !== id; });
+          p.solutions = null; save(); render(); toast('已删除', 'ok');
+        });
+      };
+    });
+  }
+
+  /* ============ 视图：求解 ============ */
+  function viewSolve() {
+    var p = plan();
+    var h = '<div class="page-head"><h1>方案求解</h1>' +
+      '<p>在「不冲突 + 学分落在区间内」的约束下，最大化你的目标价值。</p></div>';
+
+    if (p.minCredit > p.maxCredit) {
+      return h + '<div class="alert bad">学分下限大于上限，请到「候选课程」页修正。</div>';
+    }
+
+    var sols = p.solutions;
+    if (!sols) {
+      h += '<div class="card"><div class="empty">点下方按钮开始求解。</div>' +
+        '<div style="text-align:center"><button class="btn primary" id="btnRun" ' +
+        'style="padding:9px 22px">开始求解</button></div></div>';
+      return h;
+    }
+    if (sols[0] && sols[0].error) {
+      h += '<div class="alert bad"><b>无解：</b>' + esc(sols[0].error) +
+        (sols[0].pairs ? '<br>' + sols[0].pairs.map(function (x) {
+          return '· ' + esc(x[0]) + ' ↔ ' + esc(x[1]);
+        }).join('<br>') : '') + '</div>';
+      h += '<div style="text-align:center;margin-bottom:14px">' +
+        '<button class="btn primary" id="btnRun">重新求解</button></div>';
+      return h;
+    }
+
+    var st = sols[0].stats;
+    h += '<div class="kpis">' +
+      '<div class="kpi acc"><div class="k-lab">可行方案</div><div class="k-val">' +
+      sols.length + '<span class="k-unit">个</span></div></div>' +
+      '<div class="kpi"><div class="k-lab">搜索节点</div><div class="k-val">' +
+      st.nodes.toLocaleString() + '</div></div>' +
+      '<div class="kpi"><div class="k-lab">剪枝次数</div><div class="k-val">' +
+      st.prunes.toLocaleString() + '</div></div>' +
+      '<div class="kpi ok"><div class="k-lab">耗时</div><div class="k-val">' +
+      st.ms + '<span class="k-unit">ms</span></div></div>' +
+      '</div>';
+
+    var blocked = blockedCourses(p);
+    if (blocked.length) {
+      h += '<div class="alert warn"><b>' + blocked.length +
+        ' 门选修与必修时间冲突</b>，任何方案都选不上：' +
+        blocked.map(function (c) { return esc(c.name); }).join('、') +
+        '。若确实想选，需先调整必修或该课时间。</div>';
+    }
+
+    h += '<div style="margin-bottom:12px;display:flex;gap:8px">' +
+      '<button class="btn primary" id="btnRun">重新求解</button>' +
+      '<button class="btn" id="btnToCmp">对比这 ' + sols.length + ' 个方案 →</button></div>';
+
+    sols.forEach(function (s, idx) {
+      var cs = s.ids.map(courseById);
+      var on = p.picked === s.ids.join(',');
+      h += '<div class="plan-card' + (idx === 0 ? ' best' : '') + (on ? ' on' : '') + '">' +
+        '<div class="pc-head">' +
+        '<span class="pc-rank">' + (idx + 1) + '</span>' +
+        '<span class="pc-title">' + (idx === 0 ? '最优方案' : '备选方案 ' + (idx + 1)) + '</span>' +
+        (on ? '<span class="tag" style="background:#FBF2E2;color:#B8720B">已应用</span>' : '') +
+        '<span class="pc-score">目标价值 <b>' + s.v.toFixed(0) + '</b></span>' +
+        '</div>' +
+        '<div class="pc-courses">' + cs.map(function (c) {
+          return '<span class="pchip' + (c.required ? ' req' : '') + '">' + esc(c.name) +
+            ' <span class="muted">' + c.credit + '</span></span>';
+        }).join('') + '</div>' +
+        '<div class="pc-stats">' +
+        '<span>总学分 <b>' + s.credit + '</b></span>' +
+        '<span>门数 <b>' + s.kpi.count + '</b></span>' +
+        '<span>周课时 <b>' + s.kpi.slots + '</b> 节</span>' +
+        '<span>早八 <b>' + s.kpi.early + '</b></span>' +
+        '<span>空窗 <b>' + s.kpi.gaps + '</b></span>' +
+        '<span>空闲日 <b>' + s.kpi.freeDays + '</b> 天</span>' +
+        '</div>' +
+        '<div class="pc-act">' +
+        '<button class="btn sm primary" data-apply="' + idx + '">应用到课表</button>' +
+        '<button class="btn sm" data-sol="' + idx + '">查看课表</button>' +
+        '</div></div>';
+    });
+    return h;
+  }
+
+  function bindSolve() {
+    var p = plan();
+    var runBtn = $('#btnRun');
+    if (runBtn) runBtn.onclick = function () {
+      var t0 = (performance && performance.now) ? performance.now() : Date.now();
+      p.solutions = solve(p, 5);
+      var t1 = (performance && performance.now) ? performance.now() : Date.now();
+      p.picked = p.solutions[0] && !p.solutions[0].error
+        ? p.solutions[0].ids.join(',') : null;
+      save(); render();
+      if (p.solutions[0] && p.solutions[0].error) toast('无可行方案', 'err');
+      else toast('求解完成 · ' + p.solutions.length + ' 个方案 · ' +
+        Math.max(1, Math.round(t1 - t0)) + 'ms', 'ok');
+    };
+    if ($('#btnToCmp')) $('#btnToCmp').onclick = function () { go('compare'); };
+    $$('[data-apply]').forEach(function (b) {
+      b.onclick = function () {
+        var s = p.solutions[+b.getAttribute('data-apply')];
+        p.picked = s.ids.join(','); save(); render(); toast('已应用，去课表页查看', 'ok');
+      };
+    });
+    // 注意：属性必须叫 data-sol，不能叫 data-view
+    // —— 后者会连带选中顶部导航项（它们也有 data-view），把导航的 onclick 覆盖掉，
+    //    导致访问过本页后所有导航点击都抛异常。
+    $$('[data-sol]').forEach(function (b) {
+      b.onclick = function () {
+        var s = p.solutions[+b.getAttribute('data-sol')];
+        if (!s || s.error) { toast('该方案不可用', 'err'); return; }
+        p.picked = s.ids.join(','); save(); go('grid');
+      };
+    });
+  }
+
+  /* ============ 视图：课表 ============ */
+  function viewGrid() {
+    var p = plan();
+    var h = '<div class="page-head"><h1>周课表</h1>' +
+      '<p>已选方案的整周时间分布；深色块为必修，浅色块为选修。</p></div>';
+
+    if (!p.picked) {
+      return h + '<div class="card"><div class="empty">还没有应用任何方案。' +
+        '请到「方案求解」页点「应用到课表」。</div>' +
+        '<div style="text-align:center"><button class="btn primary" id="btnGoSolve">去求解</button></div></div>';
+    }
+    var ids = p.picked.split(',');
+    var cs = ids.map(courseById).filter(Boolean);
+    if (!cs.length) {
+      p.picked = null; save();
+      return h + '<div class="card"><div class="empty">方案中的课程已不存在，请重新求解。</div></div>';
+    }
+    var k = kpi(cs);
+
+    h += '<div class="kpis">' +
+      '<div class="kpi acc"><div class="k-lab">总学分</div><div class="k-val">' + k.credit + '</div></div>' +
+      '<div class="kpi"><div class="k-lab">课程门数</div><div class="k-val">' + k.count + '</div></div>' +
+      '<div class="kpi"><div class="k-lab">周课时</div><div class="k-val">' + k.slots +
+      '<span class="k-unit">节</span></div></div>' +
+      '<div class="kpi ' + (k.early >= 3 ? 'warn' : '') + '"><div class="k-lab">早八</div>' +
+      '<div class="k-val">' + k.early + '<span class="k-unit">次</span></div></div>' +
+      '<div class="kpi ' + (k.gaps >= 2 ? 'warn' : 'ok') + '"><div class="k-lab">空窗</div>' +
+      '<div class="k-val">' + k.gaps + '<span class="k-unit">段</span></div></div>' +
+      '<div class="kpi"><div class="k-lab">空闲日</div><div class="k-val">' + k.freeDays +
+      '<span class="k-unit">天</span></div></div>' +
+      '</div>';
+
+    if (k.early >= 3) {
+      var eOpt = k.early - k.earlyReq;
+      h += '<div class="alert warn">本周有 <b>' + k.early + '</b> 天第一节就有课，其中 <b>' +
+        k.earlyReq + '</b> 天来自必修课（无法调整）' +
+        (eOpt > 0 ? '，另有 <b>' + eOpt + '</b> 天是你选的选修造成的，' +
+          '可在「候选课程」页把策略切成「懒觉优先」重新求解。'
+          : '，选修部分已经没有早八了 —— 这已经是当前必修约束下的最好结果。') +
+        '</div>';
+    }
+    if (k.gaps >= 2) {
+      h += '<div class="alert warn">本周有 <b>' + k.gaps +
+        '</b> 段空窗（上午有课、晚上也有课，中间整段白等）。策略切「轻松优先」可缓解。</div>';
+    }
+
+    h += '<div class="card"><h2>时间网格</h2><div class="grid-wrap"><div class="tgrid">';
+    h += '<div class="gh"></div>';
+    var today = new Date().getDay(); // 0=周日
+    var todayIdx = today === 0 ? 7 : today;
+    DAYS.forEach(function (d, i) {
+      h += '<div class="gh' + (i + 1 === todayIdx ? ' today' : '') + '">' + d + '</div>';
+    });
+    for (var s = 1; s <= 10; s++) {
+      h += '<div class="gt"><b>' + s + '</b>' + SLOT_TIME[s] + '</div>';
+      for (var d = 1; d <= 7; d++) {
+        var rest = (s === 4 || s === 8); // 午休 / 晚饭前的间隙提示
+        h += '<div class="gcell' + (rest ? ' rest' : '') + '"></div>';
+      }
+    }
+    cs.forEach(function (c) {
+      var idx = p.courses.map(function (x) { return x.id; }).indexOf(c.id);
+      var color = HUES[idx % HUES.length];
+      c.slots.forEach(function (sl) {
+        h += '<div class="blk" style="grid-column:' + (sl.day + 1) +
+          ';grid-row:' + (sl.from + 1) + '/' + (sl.to + 2) +
+          ';background:' + color + ';opacity:' + (c.required ? '1' : '.82') +
+          '" title="' + esc(c.name + ' · ' + (c.teacher || '') + ' · ' + (c.place || '') +
+          ' · ' + slotSpan(sl)) + '">' +
+          '<b>' + esc(c.name) + '</b><span>' + esc(c.place || '') + '</span></div>';
+      });
+    });
+    h += '</div></div>';
+    h += '<div class="legend">' +
+      '<span><i style="background:#2E6F9E;opacity:1"></i>必修（不透明）</span>' +
+      '<span><i style="background:#2E6F9E;opacity:.82"></i>选修（半透明）</span>' +
+      '<span><i style="background:repeating-linear-gradient(45deg,#FBF8F3,#FBF8F3 3px,#F5F0E8 3px,#F5F0E8 6px);border:1px solid #E7E0D4"></i>午休 / 晚饭间隙</span>' +
+      '</div></div>';
+
+    h += '<div class="card"><h2>本周课程明细</h2><div class="course-list">';
+    cs.forEach(function (c) {
+      var idx = p.courses.map(function (x) { return x.id; }).indexOf(c.id);
+      h += '<div class="course"><div class="c-bar" style="background:' + HUES[idx % HUES.length] + '"></div>' +
+        '<div class="c-main"><div class="c-top"><span class="c-name">' + esc(c.name) + '</span>' +
+        '<span class="c-credit">' + c.credit + ' 学分</span>' +
+        '<span class="tag ' + (c.required ? 'req">必修' : 'opt">选修') + '</span></div>' +
+        '<div class="c-meta"><span>' + esc(c.teacher || '—') + '</span><span>' +
+        esc(c.place || '—') + '</span></div>' +
+        '<div class="c-times">' + c.slots.map(function (sl) {
+          return '<span class="tchip">' + slotSpan(sl) + '</span>';
+        }).join('') + '</div></div></div>';
+    });
+    h += '</div></div>';
+    return h;
+  }
+
+  function bindGrid() {
+    if ($('#btnGoSolve')) $('#btnGoSolve').onclick = function () { go('solve'); };
+  }
+
+  /* ============ 视图：方案对比 ============ */
+  function viewCompare() {
+    var p = plan();
+    var h = '<div class="page-head"><h1>方案对比</h1>' +
+      '<p>同一批候选课、同一套约束，不同取舍下的横向比较。</p></div>';
+    if (!p.solutions || !p.solutions.length || p.solutions[0].error) {
+      return h + '<div class="card"><div class="empty">请先到「方案求解」页跑一次求解。</div>' +
+        '<div style="text-align:center"><button class="btn primary" id="btnGoSolve2">去求解</button></div></div>';
+    }
+    var sols = p.solutions;
+    var best = sols[0];
+
+    h += '<div class="card"><h2>关键指标对比<span class="h2sub">最优方案各项基准为 100%</span></h2>';
+    var rows = [
+      ['目标价值', function (s) { return s.v; }, function (v) { return v.toFixed(0); }, false],
+      ['总学分', function (s) { return s.credit; }, function (v) { return v + ' 分'; }, false],
+      ['周课时', function (s) { return s.kpi.slots; }, function (v) { return v + ' 节'; }, true],
+      ['早八次数', function (s) { return s.kpi.early; }, function (v) { return v + ' 次'; }, true],
+      ['空窗段数', function (s) { return s.kpi.gaps; }, function (v) { return v + ' 段'; }, true]
+    ];
+    sols.forEach(function (s, i) {
+      h += '<div style="margin-bottom:14px"><div class="small" style="font-weight:600;margin-bottom:4px">' +
+        (i === 0 ? '最优方案' : '备选方案 ' + (i + 1)) + '</div>';
+      rows.forEach(function (r) {
+        var val = r[1](s), base = r[1](best) || 1;
+        var pctv = Math.min(100, Math.round(val / base * 100));
+        var colorCls = r[3] ? ' alt' : '';
+        h += '<div class="cmp-row"><span class="cmp-lab">' + r[0] + '</span>' +
+          '<span class="cmp-bar"><span class="cmp-fill' + colorCls +
+          '" style="width:' + pctv + '%"></span></span>' +
+          '<span class="cmp-val">' + r[2](val) + '</span></div>';
+      });
+      h += '</div>';
+    });
+    h += '<div class="cmp-note">橙色条表示「越低越好」的指标（周课时 / 早八 / 空窗），' +
+      '条越长说明负担越重。</div>';
+    h += '</div>';
+
+    h += '<div class="card"><h2>方案差异</h2>';
+    var sets = sols.map(function (s) {
+      return s.ids.map(courseById).filter(function (c) { return !c.required; })
+        .map(function (c) { return c.name; });
+    });
+    h += '<div class="prose"><ul>';
+    sols.forEach(function (s, i) {
+      var only = sets[i].filter(function (n) {
+        return sets.every(function (o, j) { return j === i || o.indexOf(n) < 0; });
+      });
+      h += '<li><b>' + (i === 0 ? '最优' : '备选 ' + (i + 1)) + '</b>：选修 ' +
+        (sets[i].join('、') || '（无）') +
+        (only.length ? '，其中仅此方案独有的为 <b>' + only.join('、') + '</b>' : '') + '</li>';
+    });
+    h += '</ul></div></div>';
+    return h;
+  }
+
+  function bindCompare() {
+    if ($('#btnGoSolve2')) $('#btnGoSolve2').onclick = function () { go('solve'); };
+  }
+
+  /* ============ 视图：说明 ============ */
+  function viewAbout() {
+    var p = plan();
+    return '<div class="page-head"><h1>算法说明</h1>' +
+      '<p>这不是「打个分排个序」，而是一个带约束的组合优化问题。</p></div>' +
+      '<div class="card prose">' +
+      '<h3>问题形式化</h3>' +
+      '<p>设候选课程集合为 <code>C</code>，每门课 <code>i</code> 有学分 <code>w<sub>i</sub></code>、' +
+      '想选程度 <code>p<sub>i</sub></code>、占用时段集合 <code>T<sub>i</sub></code>。求一个子集 ' +
+      '<code>S ⊆ C</code> 满足：</p>' +
+      '<div class="fml">max   Σ  wᵢ · pᵢ        （目标：总价值）<br>' +
+      's.t.  Tᵢ ∩ Tⱼ = ∅         ∀ i,j ∈ S, i≠j   （互不冲突）<br>' +
+      '      L ≤ Σ wᵢ ≤ U                        （学分落在区间）<br>' +
+      '      R ⊆ S                              （必修必选）</div>' +
+      '<p>把「课程」看作图的顶点、冲突看作边，这就是<b>带权最大独立集</b>再加一个背包约束 —— ' +
+      '属于 NP-hard。课程规模在几十门以内时，回溯配合剪枝能在毫秒级给出精确最优解。</p>' +
+
+      '<h3>三条剪枝</h3>' +
+      '<ul>' +
+      '<li><b>学分上界剪枝</b>：当前学分一旦超过上限 <code>U</code>，该分支立即终止。</li>' +
+      '<li><b>后缀和剪枝</b>：按价值密度排序后预处理后缀和 <code>suf[i]</code>，若 ' +
+      '<code>当前价值 + suf[i] ≤ 已知最优</code>，则剩余分支不可能更优，整块剪掉。</li>' +
+      '<li><b>冲突位图</b>：用长度 96 的 <code>Uint8Array</code> 记录「周几第几节」是否被占，' +
+      '冲突检测退化为 O(占用节数) 的查表，避免重复的两两比较。</li>' +
+      '</ul>' +
+
+      '<h3>为什么有 Top-K</h3>' +
+      '<p>数字上的最优解不一定是你想要的那一版。所以每轮求出最优后，' +
+      '把其中目标价值最高的那门<b>选修</b>拉黑，再求一次 —— 强制产生一个真正不同的替代方案。' +
+      '重复 K 次，就能得到「含 A 的最优」「不含 A 的最优」「也不含 B 的最优」这样有层次的候选集。</p>' +
+
+      '<h3>三个 KPI 的定义</h3>' +
+      '<ul>' +
+      '<li><b>早八</b>：第 1 节（08:00）有课的天数。</li>' +
+      '<li><b>空窗</b>：把一天切成上午 / 下午 / 晚上三段，若某段无课却被夹在两段有课的时段之间，' +
+      '记为 1 段空窗。午休和晚饭时间不算。</li>' +
+      '<li><b>空闲日</b>：整周有一天完全没课的天数。</li>' +
+      '</ul>' +
+
+      '<h3>三种策略的目标函数</h3>' +
+      '<div class="fml">学分优先：  v = wᵢ · pᵢ<br>' +
+      '懒觉优先：  v = wᵢ · pᵢ − 6·(早八次数) − 2·(晚课次数)<br>' +
+      '轻松优先：  v = wᵢ · pᵢ − 3·(每周课时数)</div>' +
+      '<p>策略只改变目标函数，不改变约束 —— 所以切换策略不会让你选到冲突的课，' +
+      '只会让求解器在同样可行的方案里偏向另一种活法。</p>' +
+
+      '<h3>边界与异常</h3>' +
+      '<ul>' +
+      '<li>必修课之间冲突 → 直接报错并列出冲突对，不进入搜索。</li>' +
+      '<li>必修学分超上限 → 提前拦截，避免白跑一遍搜索。</li>' +
+      '<li>搜索节点超过 60 万 → 主动中断，返回当前已找到的最优解。</li>' +
+      '<li>无可行组合（区间太窄 / 候选太少）→ 明确提示放宽约束。</li>' +
+      '<li>导入非法 JSON、缺 courses 字段、localStorage 被禁用 → 均有提示且不破坏现有数据。</li>' +
+      '</ul>' +
+      '<p class="small muted">当前方案：' + p.courses.length + ' 门候选课 · 学分区间 ' +
+      p.minCredit + '–' + p.maxCredit + ' · 策略「' + strat(p).label + '」</p>' +
+      '</div>';
+  }
+
+  /* ============ 弹窗 ============ */
+  function closeModal() { $('#modalRoot').innerHTML = ''; }
+  function confirmBox(title, body, onOk) {
+    $('#modalRoot').innerHTML = '<div class="mask"><div class="modal">' +
+      '<h3>' + esc(title) + '</h3><p style="color:var(--ink2);margin:0 0 4px">' + esc(body) + '</p>' +
+      '<div class="modal-foot"><button class="btn" id="mNo">取消</button>' +
+      '<button class="btn danger" id="mYes">确定</button></div></div></div>';
+    $('#mNo').onclick = closeModal;
+    $('#mYes').onclick = function () { closeModal(); onOk(); };
+  }
+
+  function openCourseEditor(id) {
+    var p = plan();
+    var c = id ? courseById(id) : {
+      id: uid(), name: '', credit: 3, required: false, want: 3,
+      teacher: '', place: '', slots: [{ day: 1, from: 1, to: 2 }]
+    };
+    var draft = clone(c);
+
+    function slotRow(i) {
+      var s = draft.slots[i];
+      var h = '<div class="slotrow" data-i="' + i + '">';
+      h += '<select class="s-day" data-k="day">';
+      DAYS.forEach(function (d, k) {
+        h += '<option value="' + (k + 1) + '"' + (s.day === k + 1 ? ' selected' : '') + '>' + d + '</option>';
+      });
+      h += '</select>';
+      h += '<select class="s-s" data-k="from">';
+      for (var a = 1; a <= 10; a++) {
+        h += '<option value="' + a + '"' + (s.from === a ? ' selected' : '') + '>第' + a + '节</option>';
+      }
+      h += '</select><span class="muted">至</span><select class="s-s" data-k="to">';
+      for (var b = 1; b <= 10; b++) {
+        h += '<option value="' + b + '"' + (s.to === b ? ' selected' : '') + '>第' + b + '节</option>';
+      }
+      h += '</select><button class="btn sm danger" data-rm="' + i + '">×</button></div>';
+      return h;
+    }
+
+    function paint() {
+      $('#modalRoot').innerHTML = '<div class="mask"><div class="modal">' +
+        '<h3>' + (id ? '编辑课程' : '添加课程') + '</h3>' +
+        '<div class="field"><label>课程名称</label><input id="cName" value="' +
+        esc(draft.name) + '" placeholder="如：数据结构"></div>' +
+        '<div class="row">' +
+        '<div class="field"><label>学分</label><input id="cCredit" type="number" min="0" max="20" step="0.5" value="' +
+        draft.credit + '"></div>' +
+        '<div class="field"><label>必修 / 选修</label><select id="cReq">' +
+        '<option value="0"' + (draft.required ? '' : ' selected') + '>选修</option>' +
+        '<option value="1"' + (draft.required ? ' selected' : '') + '>必修（必选）</option>' +
+        '</select></div>' +
+        '<div class="field"><label>想选程度</label><select id="cWant">' +
+        [1, 2, 3, 4, 5].map(function (w) {
+          return '<option value="' + w + '"' + (draft.want === w ? ' selected' : '') + '>' +
+            w + ' / 5</option>';
+        }).join('') + '</select></div></div>' +
+        '<div class="row">' +
+        '<div class="field"><label>任课教师</label><input id="cTeacher" value="' +
+        esc(draft.teacher) + '" placeholder="选填"></div>' +
+        '<div class="field"><label>上课地点</label><input id="cPlace" value="' +
+        esc(draft.place) + '" placeholder="选填"></div></div>' +
+        '<div class="field"><label>上课时间（可多段）</label>' +
+        '<div class="slotrows" id="slotBox">' +
+        draft.slots.map(function (_, i) { return slotRow(i); }).join('') +
+        '</div>' +
+        '<button class="btn sm" id="cAddSlot" style="margin-top:7px">+ 添加时间段</button></div>' +
+        '<div class="modal-foot"><button class="btn" id="cCancel">取消</button>' +
+        '<button class="btn primary" id="cOk">保存</button></div></div></div>';
+
+      $('#cCancel').onclick = closeModal;
+      $('#cAddSlot').onclick = function () {
+        draft.slots.push({ day: 1, from: 1, to: 2 });
+        paint();
+      };
+      $$('#slotBox [data-rm]').forEach(function (b) {
+        b.onclick = function () {
+          if (draft.slots.length <= 1) { toast('至少保留一个时间段', 'err'); return; }
+          draft.slots.splice(+b.getAttribute('data-rm'), 1);
+          paint();
+        };
+      });
+      $$('#slotBox .slotrow').forEach(function (row) {
+        var i = +row.getAttribute('data-i');
+        $$('select', row).forEach(function (sel) {
+          sel.onchange = function () {
+            draft.slots[i][sel.getAttribute('data-k')] = parseInt(sel.value, 10);
+            if (draft.slots[i].to < draft.slots[i].from) {
+              draft.slots[i].to = draft.slots[i].from;
+              paint();
+            }
+          };
+        });
+      });
+      $('#cOk').onclick = function () {
+        draft.name = $('#cName').value.trim();
+        draft.credit = parseFloat($('#cCredit').value);
+        draft.required = $('#cReq').value === '1';
+        draft.want = parseInt($('#cWant').value, 10);
+        draft.teacher = $('#cTeacher').value.trim();
+        draft.place = $('#cPlace').value.trim();
+        if (!draft.name) { toast('请填写课程名称', 'err'); return; }
+        // 学分必须为正数且在合理区间：0 学分会让课程"免费"进入最优解（不占学分预算），
+        // 从而把求解结果带偏；过大的值则会直接撑爆学分区间。
+        if (!(draft.credit > 0) || draft.credit > 20) {
+          toast('学分需为 0.5–20 之间的数字', 'err'); return;
+        }
+        if (!(draft.want >= 1 && draft.want <= 5)) draft.want = 3;
+        for (var i = 0; i < draft.slots.length; i++) {
+          var s = draft.slots[i];
+          if (!(s.day >= 1 && s.day <= 7 && s.from >= 1 && s.to <= 10 && s.from <= s.to)) {
+            toast('第 ' + (i + 1) + ' 段上课时间不合法', 'err'); return;
+          }
+        }
+        if (id) {
+          var old = courseById(id);
+          Object.keys(draft).forEach(function (k2) { old[k2] = draft[k2]; });
+        } else {
+          p.courses.push(draft);
+        }
+        p.solutions = null;
+        save(); closeModal(); render();
+        toast(id ? '已保存' : '已添加', 'ok');
+      };
+    }
+    paint();
+  }
+
+  function openPlanEditor() {
+    $('#modalRoot').innerHTML = '<div class="mask"><div class="modal">' +
+      '<h3>新建选课方案</h3>' +
+      '<div class="field"><label>方案名称</label><input id="pTitle" placeholder="如：2026 秋季学期"></div>' +
+      '<div class="row">' +
+      '<div class="field"><label>学分下限</label><input id="pMin" type="number" value="22"></div>' +
+      '<div class="field"><label>学分上限</label><input id="pMax" type="number" value="28"></div>' +
+      '<div class="field"><label>起始策略</label><select id="pStrat">' +
+      Object.keys(STRATS).map(function (k) {
+        return '<option value="' + k + '">' + STRATS[k].label + '</option>';
+      }).join('') + '</select></div></div>' +
+      '<div class="modal-foot"><button class="btn" id="pCancel">取消</button>' +
+      '<button class="btn primary" id="pOk">创建</button></div></div></div>';
+    $('#pCancel').onclick = closeModal;
+    $('#pOk').onclick = function () {
+      var t = $('#pTitle').value.trim();
+      var mn = parseInt($('#pMin').value, 10), mx = parseInt($('#pMax').value, 10);
+      if (!t) { toast('请填写方案名称', 'err'); return; }
+      if (!(mn >= 1) || !(mx >= 1)) { toast('学分需为正整数', 'err'); return; }
+      if (mn > mx) { toast('下限不能大于上限', 'err'); return; }
+      var np = {
+        id: uid(), title: t, minCredit: mn, maxCredit: mx,
+        strategy: $('#pStrat').value, courses: [], picked: null, solutions: null
+      };
+      STORE.plans.push(np);
+      STORE.active = np.id;
+      save(); closeModal(); render(); toast('已创建', 'ok');
+    };
+  }
+
+  /* ============ 导入导出 ============ */
+  function exportJSON() {
+    var blob = new Blob([JSON.stringify(STORE, null, 2)], { type: 'application/json' });
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'coursegrid-' + new Date().toISOString().slice(0, 10) + '.json';
+    a.click();
+    setTimeout(function () { URL.revokeObjectURL(a.href); }, 1000);
+    toast('已导出', 'ok');
+  }
+  function importJSON(file) {
+    var fr = new FileReader();
+    fr.onload = function () {
+      var d;
+      try { d = JSON.parse(fr.result); }
+      catch (e) { toast('不是合法的 JSON 文件', 'err'); return; }
+      if (!d || !d.plans || !Array.isArray(d.plans) || !d.plans.length) {
+        toast('文件里没有可识别的方案数据', 'err'); return;
+      }
+      var okPlans = d.plans.filter(function (p) {
+        return p && p.title && Array.isArray(p.courses);
+      });
+      if (!okPlans.length) { toast('方案结构不完整（缺 title 或 courses）', 'err'); return; }
+      STORE = { plans: okPlans, active: okPlans[0].id };
+      save(); render();
+      toast('已导入 ' + okPlans.length + ' 个方案', 'ok');
+    };
+    fr.onerror = function () { toast('读取文件失败', 'err'); };
+    fr.readAsText(file);
+  }
+
+  /* ============ 路由 / 渲染 ============ */
+  var VIEWS = [
+    { k: 'courses', n: '候选课程', fn: viewCourses, bind: bindCourses },
+    { k: 'solve', n: '方案求解', fn: viewSolve, bind: bindSolve },
+    { k: 'grid', n: '周课表', fn: viewGrid, bind: bindGrid },
+    { k: 'compare', n: '方案对比', fn: viewCompare, bind: bindCompare },
+    { k: 'about', n: '算法说明', fn: viewAbout, bind: function () { } }
+  ];
+
+  function render(keepScroll) {
+    var sc = keepScroll ? window.scrollY : 0;
+    var v = VIEWS.filter(function (x) { return x.k === CURVIEW; })[0] || VIEWS[0];
+    try {
+      $('#main').innerHTML = v.fn();
+    } catch (e) {
+      // 渲染失败必须显式提示，否则 main 会静默保留上一页内容，看起来像"点了没反应"
+      $('#main').innerHTML = '<div class="card"><h1>页面渲染出错</h1>' +
+        '<div class="alert bad">' + esc(String(e && e.message || e)) + '</div>' +
+        '<div class="small muted">数据可能已损坏。可尝试右上角「示例课程」重置，或导出后手工修正 JSON。</div></div>';
+      console.error(e);
+      return;
+    }
+    try { v.bind(); } catch (e) { console.error(e); }
+    $$('.nav-item').forEach(function (a) {
+      a.classList.toggle('on', a.getAttribute('data-view') === CURVIEW);
+      a.onclick = function () { go(a.getAttribute('data-view')); };
+    });
+    window.scrollTo(0, sc);
+  }
+  function go(k) { CURVIEW = k; render(); }
+
+  function renderNav() {
+    var p = plan();
+    var nOpt = p.courses.length;
+    $('#nav').innerHTML = VIEWS.map(function (v) {
+      var b = (v.k === 'courses' && nOpt) ? '<span class="ni-badge">' + nOpt + '</span>' : '';
+      return '<div class="nav-item" data-view="' + v.k + '"><span>' + v.n + '</span>' + b + '</div>';
+    }).join('');
+    $$('.nav-item').forEach(function (a) {
+      a.onclick = function () { go(a.getAttribute('data-view')); };
+    });
+  }
+
+  function renderPicker() {
+    var sel = $('#planPicker');
+    sel.innerHTML = STORE.plans.map(function (p) {
+      return '<option value="' + p.id + '"' + (p.id === STORE.active ? ' selected' : '') + '>' +
+        esc(p.title) + '（' + p.courses.length + ' 门）</option>';
+    }).join('');
+    sel.onchange = function () {
+      STORE.active = sel.value;
+      save(); renderNav(); render();
+    };
+  }
+
+  function paintAll() { renderPicker(); renderNav(); render(); }
+
+  /* ============ 启动 ============ */
+  function boot() {
+    if (!load()) {
+      STORE = { plans: [seedPlan()], active: null };
+      STORE.active = STORE.plans[0].id;
+      save();
+    }
+    $('#btnNew').onclick = openPlanEditor;
+    $('#btnSeed').onclick = function () {
+      var sp = seedPlan();
+      STORE.plans.push(sp);
+      STORE.active = sp.id;
+      save(); paintAll();
+      toast('已载入 ' + sp.courses.length + ' 门示例课程', 'ok');
+    };
+    $('#btnExport').onclick = exportJSON;
+    $('#btnImport').onclick = function () { $('#fileInput').click(); };
+    $('#fileInput').onchange = function () {
+      if (this.files && this.files[0]) importJSON(this.files[0]);
+      this.value = '';
+    };
+    document.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape') closeModal();
+    });
+    paintAll();
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', boot);
+  } else boot();
+})();
+
+</script>
+</body>
+</html>
